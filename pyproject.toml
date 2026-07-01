@@ -1,0 +1,13 @@
+[project]
+name = "token-bin"
+version = "0.1.0"
+description = "🗑️ Deliberately waste tokens with surgical precision. Your token trash bin."
+requires-python = ">=3.10"
+dependencies = [
+    "textual>=0.40.0",
+    "httpx>=0.27.0",
+    "tiktoken>=0.7.0",
+]
+
+[project.scripts]
+token-bin = "token_bin.main:main"
