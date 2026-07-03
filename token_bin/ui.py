@@ -7,7 +7,7 @@ from typing import Optional
 
 from textual import on, work
 from textual.app import App, ComposeResult
-from textual.containers import Center, Container
+from textual.containers import Center, Container, VerticalScroll
 from textual.screen import Screen
 from textual.widgets import (
     Button,
@@ -39,17 +39,19 @@ Screen {
     layout: vertical;
 }
 
-/* Global: all screens fill the available area */
-Container > Screen {
-    height: 100%;
-}
-
-/* ── Shared: centered full-area container ─────── */
+/* ── Shared: scrollable full-area container ─────── */
 
 .centered {
     align: center middle;
+    width: auto;
+    height: auto;
+}
+
+.scroll-content {
     height: 100%;
     width: 100%;
+    align: center middle;
+    overflow-y: auto;
 }
 
 /* ── Welcome ─────────────────────────────────── */
@@ -58,11 +60,15 @@ Container > Screen {
     color: #00ff88;
     text-style: bold;
     margin-bottom: 1;
+    width: 100%;
+    text-align: center;
 }
 
 #tagline {
     color: #888888;
     margin-bottom: 2;
+    width: 100%;
+    text-align: center;
 }
 
 #start-btn {
@@ -73,7 +79,8 @@ Container > Screen {
 /* ── Setup form ──────────────────────────────── */
 
 #setup-form {
-    width: 64;
+    width: 90%;
+    max-width: 64;
     border: solid #00ff88;
     padding: 1 2;
 }
@@ -96,10 +103,13 @@ Container > Screen {
 
 #provider-radios {
     margin: 0 0 1 0;
+    layout: vertical;
+    height: auto;
 }
 
-RadioButton {
-    margin: 0 1;
+#provider-radios > RadioButton {
+    width: 100%;
+    margin: 0;
 }
 
 #advanced-section {
@@ -118,6 +128,8 @@ RadioButton {
 #setup-buttons {
     width: 100%;
     margin-top: 1;
+    layout: horizontal;
+    align: center middle;
 }
 
 #setup-buttons Button {
@@ -127,7 +139,8 @@ RadioButton {
 /* ── Waste progress ──────────────────────────── */
 
 #waste-box {
-    width: 56;
+    width: 90%;
+    max-width: 56;
     border: solid #00ff88;
     padding: 1 2;
 }
@@ -160,9 +173,10 @@ RadioButton {
 /* ── Report ─────────────────────────────────── */
 
 #report-box {
-    width: 70;
+    width: 90%;
+    max-width: 70;
     height: auto;
-    max-height: 18;          /* limit height so it fits screen */
+    max-height: 60%;
     border: double #00ff88;
     padding: 0 1;
     overflow-y: auto;
@@ -175,6 +189,12 @@ RadioButton {
 #report-footer-text {
     color: #888888;
     margin-top: 1;
+    text-align: center;
+}
+
+.report-footer {
+    align: center middle;
+    width: 100%;
 }
 
 #done-btn {
@@ -211,11 +231,13 @@ TAGLINE = "Your precision token wastebin"
 
 class WelcomeScreen(Screen):
     def compose(self) -> ComposeResult:
-        yield Container(
+        yield VerticalScroll(
             Static(LOGO, id="logo"),
-            Static(TAGLINE),
-            Button(">> START WASTING", variant="success", id="start-btn"),
-            classes="centered",
+            Static(TAGLINE, id="tagline"),
+            Center(
+                Button(">> START WASTING", variant="success", id="start-btn"),
+            ),
+            classes="scroll-content",
         )
 
     @on(Button.Pressed, "#start-btn")
@@ -230,28 +252,36 @@ class SetupScreen(Screen):
     _provider: str = "openai"
 
     def compose(self) -> ComposeResult:
-        yield Container(
+        yield VerticalScroll(
             Container(
                 Static("<< CONFIGURE YOUR WASTE >>", id="setup-title"),
                 Label("Provider", classes="setup-label"),
                 RadioSet(
-                    RadioButton("OpenAI / Azure", value="openai", id="rb-openai"),
-                    RadioButton("Anthropic Claude", value="anthropic", id="rb-anthropic"),
-                    RadioButton("DeepSeek", value="deepseek", id="rb-deepseek"),
-                    RadioButton("Generic (OpenRouter / Custom)", value="generic", id="rb-generic"),
+                    RadioButton("OpenAI / Azure",
+                                value="openai", id="rb-openai"),
+                    RadioButton("Anthropic Claude",
+                                value="anthropic", id="rb-anthropic"),
+                    RadioButton("DeepSeek", value="deepseek",
+                                id="rb-deepseek"),
+                    RadioButton("Generic (OpenRouter / Custom)",
+                                value="generic", id="rb-generic"),
                     id="provider-radios",
                 ),
                 Label("API Key", classes="setup-label"),
-                Input(placeholder="sk-... or your API key", password=True, id="api-key", classes="setup-input"),
+                Input(placeholder="sk-... or your API key",
+                      password=True, id="api-key", classes="setup-input"),
                 Label("Model Name", classes="setup-label"),
-                Input(placeholder="gpt-4o / claude-3-5-sonnet / deepseek-chat / ...", id="model-name", classes="setup-input"),
+                Input(placeholder="gpt-4o / claude-3-5-sonnet / deepseek-chat / ...",
+                      id="model-name", classes="setup-input"),
                 Container(
                     Label("Base URL", classes="setup-label"),
-                    Input(placeholder="https://api.openai.com/v1", id="base-url", classes="setup-input"),
+                    Input(placeholder="https://api.openai.com/v1",
+                          id="base-url", classes="setup-input"),
                     id="advanced-section",
                 ),
                 Label("Target Tokens", classes="setup-label"),
-                Input(placeholder="10000", id="target-tokens", classes="setup-input"),
+                Input(placeholder="10000", id="target-tokens",
+                      classes="setup-input"),
                 Static("", id="error-msg"),
                 Container(
                     Button("Back", variant="default", id="back-btn"),
@@ -260,7 +290,7 @@ class SetupScreen(Screen):
                 ),
                 id="setup-form",
             ),
-            classes="centered",
+            classes="scroll-content",
         )
 
     def on_mount(self) -> None:
@@ -328,15 +358,19 @@ class SetupScreen(Screen):
         target = int(target_str)
 
         if self._provider == "openai":
-            provider = OpenAIProvider(api_key=api_key, model=model, base_url=base_url or "https://api.openai.com/v1")
+            provider = OpenAIProvider(
+                api_key=api_key, model=model, base_url=base_url or "https://api.openai.com/v1")
         elif self._provider == "anthropic":
             provider = AnthropicProvider(api_key=api_key, model=model)
         elif self._provider == "deepseek":
-            provider = DeepSeekProvider(api_key=api_key, model=model, base_url=base_url or "https://api.deepseek.com/v1")
+            provider = DeepSeekProvider(
+                api_key=api_key, model=model, base_url=base_url or "https://api.deepseek.com/v1")
         else:
-            provider = GenericOpenAIProvider(api_key=api_key, model=model, base_url=base_url)
+            provider = GenericOpenAIProvider(
+                api_key=api_key, model=model, base_url=base_url)
 
-        self.app.push_screen(WasteScreen(provider, target))  # type: ignore[arg-type]
+        self.app.push_screen(WasteScreen(provider, target)
+                             )  # type: ignore[arg-type]
 
 
 # ── Waste (Progress) Screen ──────────────────────────────────────────────────
@@ -351,7 +385,7 @@ class WasteScreen(Screen):
         self.report: Optional[WasteReport] = None
 
     def compose(self) -> ComposeResult:
-        yield Container(
+        yield VerticalScroll(
             Container(
                 Static("* WASTING TOKENS...", id="waste-title"),
                 Static("Calibrating...", id="waste-status"),
@@ -359,7 +393,7 @@ class WasteScreen(Screen):
                 Static("", id="waste-stats"),
                 id="waste-box",
             ),
-            classes="centered",
+            classes="scroll-content",
         )
 
     def on_mount(self) -> None:
@@ -374,7 +408,8 @@ class WasteScreen(Screen):
         def update_progress(round_num: int, target: int, consumed: int) -> None:
             pct = min(100, int(consumed / target * 100)) if target else 100
             bar.update(progress=pct)
-            status.update(f"Round {round_num}: consumed {consumed:,} / {target:,} tokens")
+            status.update(
+                f"Round {round_num}: consumed {consumed:,} / {target:,} tokens")
             stats.update(f"Error so far: {consumed - target:+d} tokens")
 
         try:
@@ -406,16 +441,18 @@ class ReportScreen(Screen):
     def compose(self) -> ComposeResult:
         report_text = format_report(self.report)
 
-        yield Container(
+        yield VerticalScroll(
             Container(
                 Static(report_text, id="report-text"),
                 id="report-box",
             ),
             Container(
-                Static("Waste complete. Mother Earth disapproves.", id="report-footer-text"),
+                Static("Waste complete. Mother Earth disapproves.",
+                       id="report-footer-text"),
                 Button("> WASTE MORE", variant="success", id="done-btn"),
+                classes="report-footer",
             ),
-            classes="centered",
+            classes="scroll-content",
         )
 
     @on(Button.Pressed, "#done-btn")

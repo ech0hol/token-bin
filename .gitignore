@@ -22,7 +22,7 @@ env/
 Thumbs.db
 
 # CodeBuddy (project data, not cache)
-# .codebuddy/
+.codebuddy/
 
 # Env files
 .env
