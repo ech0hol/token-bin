@@ -360,6 +360,12 @@ class TokenWaster:
     async def _waste_native(
         self, target: int, cb: Optional[Callable[[int, int, int], None]]
     ) -> WasteReport:
+        # Each call re-sends the system prompt, so its tokens are charged every
+        # round. Measure it precisely with the native tokenizer and budget for it.
+        system_tokens = self.provider.count_tokens(_SYSTEM_PROMPT)
+        # Completion is capped by max_tokens; account for it per call.
+        max_completion = 1
+
         accumulated = 0
         prompt_total = 0
         completion_total = 0
@@ -371,16 +377,27 @@ class TokenWaster:
                 break
 
             rounds += 1
-            prompt_text = self.provider.generate_exact_token_text(
-                max(1, remaining - 5)
-            )  # -5 for system msg overhead
+            # Budget user content so that system + content + completion ≈ remaining.
+            # When the gap is smaller than one call's minimum cost we can't close it
+            # precisely, so just emit a minimal call instead of overshooting further.
+            min_call = system_tokens + max_completion
+            if remaining <= min_call:
+                content_tokens = 0
+            else:
+                content_tokens = remaining - min_call
+
+            prompt_text = (
+                self.provider.generate_exact_token_text(content_tokens)
+                if content_tokens > 0
+                else "."
+            )
 
             resp = await self.provider.chat(
                 messages=[
                     {"role": "system", "content": _SYSTEM_PROMPT},
                     {"role": "user", "content": prompt_text},
                 ],
-                max_tokens=10,
+                max_tokens=max_completion,
                 temperature=0,
             )
             usage = resp["usage"]
@@ -474,7 +491,7 @@ class TokenWaster:
             usage = resp["usage"]
             prompt_total += usage["prompt_tokens"]
             completion_total += usage["completion_tokens"]
-            accumulated = prompt_total + completion_tokens
+            accumulated = prompt_total + completion_total
 
             # Dynamically refine ratio using user-content-only tokens
             actual_prompt = usage["prompt_tokens"]
